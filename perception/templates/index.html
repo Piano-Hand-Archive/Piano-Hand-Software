@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Uploader and Camera Capture</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 600px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .option {
+            margin-bottom: 2rem;
+        }
+        .option h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .camera-container {
+            position: relative;
+            background-color: #000;
+        }
+        video {
+            width: 100%;
+            border-radius: 4px;
+            transform: rotate(90deg);
+        }
+        #canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: rotate(90deg);
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="file"] {
+            display: block;
+            width: calc(100% - 1.5rem);
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #upload-pdf-form {
+            display: flex;
+            gap: 1rem;
+        }
+        #message {
+            text-align: center;
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .message-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .message-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Piano Hand Project</h1>
+        <div id="message"></div>
+
+        <div class="option">
+            <h2>Option 1: Upload Image File</h2>
+            <form id="upload-image-form">
+                <input type="file" id="image_file" name="image_file" accept=".png,.jpg,.jpeg" required>
+                <button type="submit">Upload & Process Image</button>
+            </form>
+        </div>
+
+        <div class="option">
+            <h2>Option 2: Capture Image with Camera</h2>
+            <div class="camera-container">
+                <video id="video" autoplay></video>
+                <canvas id="canvas-overlay"></canvas>
+            </div>
+            <button id="snap">Start Capture</button>
+            <canvas id="canvas" style="display:none;"></canvas>
+        </div>
+    </div>
+
+    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
