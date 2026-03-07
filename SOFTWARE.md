@@ -1,4 +1,4 @@
 # Software #
 
-Audiveris: https://github.com/Audiveris/audiveris  
+hOMR: https://github.com/liebharc/homr
 OpenCV: https://pypi.org/project/opencv-python/
