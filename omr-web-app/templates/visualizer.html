@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MusicXML Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.js"></script>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; margin: 0; }
+        .at-wrap { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .at-content { position: relative; flex: 1 1 auto; }
+        .at-viewport { overflow-y: auto; position: absolute; inset: 0; }
+        .at-main { margin: 0 auto; }
+        .at-cursor-bar { background: rgba(255, 242, 0, 0.25); }
+        .at-cursor-beat { background: rgba(64, 64, 255, 0.75); width: 3px; }
+        .at-highlight * { fill: #0078ff; stroke: #0078ff; }
+        .at-controls {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1f4f8b;
+            color: #fff;
+            padding: 10px;
+        }
+        .btn {
+            border: 1px solid #fff;
+            padding: 8px 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .btn.disabled { opacity: 0.5; cursor: progress; }
+        .at-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="at-wrap">
+        <div class="at-overlay" id="at-overlay">Loading sheet music...</div>
+        <div class="at-content">
+            <div class="at-viewport">
+                <div class="at-main"></div>
+            </div>
+        </div>
+        <div class="at-controls">
+            <div>
+                <span class="btn at-player-play-pause disabled">PLAY</span>
+                <span class="at-player-progress" style="margin-left: 10px;">0%</span>
+            </div>
+            <div class="at-song-position">00:00 / 00:00</div>
+        </div>
+    </div>
+
+    <script>
+        const wrapper = document.querySelector('.at-wrap');
+        const main = wrapper.querySelector('.at-main');
+        const overlay = document.getElementById('at-overlay');
+        const fileUrl = "{{ url_for('get_musicxml_file', filename=file_name) }}";
+
+        const api = new alphaTab.AlphaTabApi(main, {
+            file: fileUrl,
+            player: {
+                enablePlayer: true,
+                soundFont: "https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2",
+                scrollElement: wrapper.querySelector('.at-viewport')
+            }
+        });
+
+        api.renderStarted.on(() => { overlay.style.display = 'flex'; });
+        api.renderFinished.on(() => { overlay.style.display = 'none'; });
+
+        const progress = wrapper.querySelector('.at-player-progress');
+        const playPause = wrapper.querySelector('.at-player-play-pause');
+        const position = wrapper.querySelector('.at-song-position');
+
+        api.soundFontLoad.on((e) => {
+            const pct = Math.floor((e.loaded / e.total) * 100);
+            progress.textContent = pct + '%';
+        });
+        api.playerReady.on(() => {
+            progress.style.display = 'none';
+            playPause.classList.remove('disabled');
+        });
+        playPause.addEventListener('click', () => {
+            if (!playPause.classList.contains('disabled')) {
+                api.playPause();
+            }
+        });
+        api.playerStateChanged.on((e) => {
+            playPause.textContent = e.state === alphaTab.synth.PlayerState.Playing ? 'PAUSE' : 'PLAY';
+        });
+        api.playerPositionChanged.on((e) => {
+            const fmt = (ms) => {
+                const totalSeconds = Math.floor(ms / 1000);
+                const m = Math.floor(totalSeconds / 60);
+                const s = totalSeconds % 60;
+                return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            };
+            position.textContent = fmt(e.currentTime) + ' / ' + fmt(e.endTime);
+        });
+    </script>
+</body>
+</html>

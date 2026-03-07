@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>alphaTab Live Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.js"></script>
+    <script src="https://kit.fontawesome.com/b43f0e512e.js"></script>
+    <style type="text/css">
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 0; padding: 0; }
+        .at-wrap { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .at-content { position: relative; overflow: hidden; flex: 1 1 auto; display: flex; flex-direction: row; }
+        .at-viewport { overflow-y: auto; position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-right: 20px; }
+        .at-main { margin: 0 auto; }
+        
+        /* Cursors & Visualizers */
+        .at-cursor-bar { background: rgba(255, 242, 0, 0.25); }
+        .at-cursor-beat { background: rgba(64, 64, 255, 0.75); width: 3px; }
+        .at-highlight * { fill: #0078ff; stroke: #0078ff; }
+
+        /* Controls Footer */
+        .at-controls { flex: 0 0 auto; display: flex; justify-content: space-between; background: #436d9d; color: #fff; padding: 5px 10px; }
+        .at-controls > div { display: flex; align-items: center; }
+        .at-controls .btn { color: #fff; cursor: pointer; padding: 10px; font-size: 16px; text-decoration: none; }
+        .at-controls .btn.disabled { cursor: progress; opacity: 0.5; }
+        .at-song-info { margin-left: 15px; font-size: 14px; }
+        
+        /* Overlay */
+        .at-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1002; backdrop-filter: blur(3px); background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="at-wrap">
+        <div class="at-overlay" id="at-overlay">Loading Sheet Music...</div>
+        
+        <div class="at-content">
+            <div class="at-viewport">
+                <div class="at-main"></div>
+            </div>
+        </div>
+
+        <div class="at-controls">
+            <div class="at-controls-left">
+                <a class="btn at-player-play-pause disabled" style="color: white; border: 1px solid white;">PLAY</a>
+                
+                <span class="at-player-progress" style="margin-left: 10px;">0%</span>
+                <div class="at-song-info">
+                    <span class="at-song-title"></span> - <span class="at-song-artist"></span>
+                </div>
+            </div>
+            <div class="at-controls-right">
+                <div class="at-song-position">00:00 / 00:00</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        const wrapper = document.querySelector(".at-wrap");
+        const main = wrapper.querySelector(".at-main");
+        const overlay = document.getElementById("at-overlay");
+
+        const settings = {
+            file: "/files/Fluke5.musicxml", 
+            player: {
+                enablePlayer: true,
+                soundFont: "https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2",
+                scrollElement: wrapper.querySelector('.at-viewport')
+            }
+        };
+        const api = new alphaTab.AlphaTabApi(main, settings);
+
+        api.renderStarted.on(() => { overlay.style.display = "flex"; });
+        api.renderFinished.on(() => { overlay.style.display = "none"; });
+
+        api.scoreLoaded.on((score) => {
+            wrapper.querySelector(".at-song-title").innerText = score.title || "Untitled";
+            wrapper.querySelector(".at-song-artist").innerText = score.artist || "Unknown";
+        });
+
+        const playerIndicator = wrapper.querySelector(".at-player-progress");
+        api.soundFontLoad.on((e) => {
+            const percentage = Math.floor((e.loaded / e.total) * 100);
+            playerIndicator.innerText = percentage + "%";
+        });
+
+        api.playerReady.on(() => { 
+            playerIndicator.style.display = "none"; 
+            api.masterVolume = 0; 
+        });
+
+        // Updated Logic: Play/Pause button only
+        const playPause = wrapper.querySelector(".at-player-play-pause");
+
+        playPause.onclick = () => { 
+            if (!playPause.classList.contains("disabled")) {
+                api.playPause(); 
+            }
+        };
+
+        api.playerReady.on(() => {
+            playPause.classList.remove("disabled");
+        });
+
+        api.playerStateChanged.on((e) => {
+            // Keep text in sync with play state
+            if (e.state === alphaTab.synth.PlayerState.Playing) {
+                playPause.innerText = "PAUSE";
+            } else {
+                playPause.innerText = "PLAY";
+            }
+        });
+
+        const songPosition = wrapper.querySelector(".at-song-position");
+        api.playerPositionChanged.on((e) => {
+            const format = (ms) => {
+                let s = ms / 1000;
+                const m = (s / 60) | 0;
+                s = (s - m * 60) | 0;
+                return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+            };
+            songPosition.innerText = format(e.currentTime) + " / " + format(e.endTime);
+        });
+    </script>
+</body>
+</html>

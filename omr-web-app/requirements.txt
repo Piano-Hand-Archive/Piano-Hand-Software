@@ -1,0 +1,14 @@
+Flask
+opencv-python
+imutils
+numpy
+Pillow
+scikit-image
+requests
+torch
+transformers
+scipy
+musicxml
+onnxruntime
+rapidocr_onnxruntime
+music21
