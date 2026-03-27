@@ -40,7 +40,7 @@ If you prefer to set up manually:
     python app.py
     ```
 
-2.  Open your web browser and go to `http://127.0.0.1:5000`.
+2.  Open your web browser and go to `http://127.0.0.1:5001` (port 5001 avoids a conflict with macOS AirPlay on 5000, which can show HTTP 403). Override with `PORT=8080 python app.py` if needed.
 
 ## How to Use
 

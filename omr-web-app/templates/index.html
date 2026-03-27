@@ -147,6 +147,20 @@
             <button id="snap">Start Capture</button>
             <canvas id="canvas" style="display:none;"></canvas>
         </div>
+
+        <div class="option">
+            <h2>Option 3: Select Pre-loaded Song</h2>
+            <form id="preloaded-form">
+                <select id="preloaded_file" name="preloaded_file" style="display: block; width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 1rem;">
+                    <option value="" disabled selected>Select a MusicXML file...</option>
+                    {% for item in preloaded_items %}
+                        <option value="{{ item.filename }}">{{ item.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Load File</button>
+            </form>
+            <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem; text-align: center;">Add files to the <code>preloaded_musicxml</code> directory to see them here.</p>
+        </div>
     </div>
 
     <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>

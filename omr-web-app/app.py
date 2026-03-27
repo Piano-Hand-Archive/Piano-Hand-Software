@@ -1,4 +1,5 @@
 import os
+import xml.etree.ElementTree as ET
 from flask import Flask, render_template, request, jsonify, send_from_directory, abort
 from werkzeug.utils import secure_filename
 import base64
@@ -8,14 +9,72 @@ from image_processor import process_image_to_musicxml
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 MUSICXML_FOLDER = 'musicxml_output'
+PRELOADED_FOLDER = 'preloaded_musicxml'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MUSICXML_FOLDER'] = MUSICXML_FOLDER
+app.config['PRELOADED_FOLDER'] = PRELOADED_FOLDER
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 if not os.path.exists(MUSICXML_FOLDER):
     os.makedirs(MUSICXML_FOLDER)
+if not os.path.exists(PRELOADED_FOLDER):
+    os.makedirs(PRELOADED_FOLDER)
+
+def _xml_local_tag(tag):
+    return tag.rsplit('}', 1)[-1] if tag.startswith('{') else tag
+
+def _prettify_filename(filename):
+    base = os.path.splitext(filename)[0]
+    name = base.replace('_', ' ').replace('-', ' ')
+    return ' '.join(w.capitalize() for w in name.split()) if name.strip() else filename
+
+def musicxml_display_title(file_path, filename):
+    """Prefer movement-title / work-title / printed title credit; else a nicer filename."""
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+    except (ET.ParseError, OSError):
+        return _prettify_filename(filename)
+
+    movement_title = None
+    work_title = None
+    credit_title = None
+
+    for el in root.iter():
+        ln = _xml_local_tag(el.tag)
+        # Metadata lives before the first <part>; skip the note data for speed.
+        if ln == 'part':
+            break
+        if ln == 'movement-title' and el.text and el.text.strip():
+            movement_title = el.text.strip()
+            break
+        if ln == 'work-title' and el.text and el.text.strip() and not work_title:
+            work_title = el.text.strip()
+        if ln == 'credit':
+            ctype = None
+            cwords = None
+            for child in el:
+                cln = _xml_local_tag(child.tag)
+                if cln == 'credit-type' and child.text:
+                    ctype = child.text.strip()
+                if cln == 'credit-words':
+                    cwords = ''.join(child.itertext()).strip()
+            if ctype == 'title' and cwords and not credit_title:
+                credit_title = cwords
+
+    if movement_title:
+        return movement_title
+
+    generic = {'title', 'untitled', 'piece', 'new score', 'untitled score'}
+    if work_title and work_title.lower() not in generic:
+        return work_title
+    if credit_title:
+        return credit_title
+    if work_title:
+        return work_title
+    return _prettify_filename(filename)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -23,7 +82,15 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    preloaded_items = []
+    if os.path.exists(app.config['PRELOADED_FOLDER']):
+        for f in sorted(os.listdir(app.config['PRELOADED_FOLDER'])):
+            if not (f.endswith('.musicxml') or f.endswith('.xml')):
+                continue
+            path = os.path.join(app.config['PRELOADED_FOLDER'], f)
+            label = musicxml_display_title(path, f)
+            preloaded_items.append({'filename': f, 'label': label})
+    return render_template('index.html', preloaded_items=preloaded_items)
 
 @app.route('/musicxml/<path:filename>')
 def get_musicxml_file(filename):
@@ -80,5 +147,25 @@ def process_image_endpoint():
 def piano_visualizer():
     return render_template('piano_visualizer.html')
 
+import shutil
+
+@app.route('/process_preloaded', methods=['POST'])
+def process_preloaded():
+    data = request.json
+    filename = data.get('filename')
+    if not filename:
+        return jsonify({'error': 'No filename provided.'}), 400
+    
+    source_path = os.path.join(app.config['PRELOADED_FOLDER'], filename)
+    if not os.path.exists(source_path):
+        return jsonify({'error': 'File not found.'}), 404
+        
+    dest_path = os.path.join(app.config['MUSICXML_FOLDER'], filename)
+    shutil.copy2(source_path, dest_path)
+    
+    return jsonify({'success': 'Loaded pre-loaded file.', 'musicxml_path': dest_path})
+
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    # Default 5001: macOS AirPlay Receiver uses port 5000 and returns HTTP 403 in the browser.
+    port = int(os.environ.get('PORT', '5001'))
+    app.run(debug=True, use_reloader=False, host='127.0.0.1', port=port)
