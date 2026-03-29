@@ -11,6 +11,7 @@ function onOpenCvReady() {
 function startApp() {
     if (!cvReady) { return; }
 
+    const cameraWrapper = document.querySelector('.camera-wrapper');
     const video = document.getElementById('video');
     const captureCanvas = document.getElementById('canvas');
     const overlayCanvas = document.getElementById('canvas-overlay');
@@ -18,6 +19,7 @@ function startApp() {
     const messageDiv = document.getElementById('message');
     const embeddedVisualizer = document.getElementById('embedded-visualizer');
     const visualizerFrame = document.getElementById('visualizer-frame');
+    const libraryForm = document.getElementById('preloaded-form');
 
     // --- State variables for capture workflow ---
     let streaming = false;
@@ -35,6 +37,16 @@ function startApp() {
             facingMode: "environment"
         }
     };
+
+    libraryForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const selectedFile = document.getElementById('preloaded_file').value;
+        if (selectedFile) {
+            const url = `/visualizer?file=${encodeURIComponent(selectedFile)}`;
+            showEmbeddedVisualizer(url);
+            showMessage(`Loaded ${selectedFile} from library.`, 'success');
+        }
+    });
 
     async function startCamera() {
         try {
@@ -136,22 +148,33 @@ function startApp() {
         requestAnimationFrame(processVideo);
     }
     
-    startCamera();
+    // startCamera();
 
-    snap.addEventListener('click', () => {
-        // Case 1: User clicks "Start Capture". We begin the detection process.
+    snap.addEventListener('click', async () => {
+        // 1. Reveal camera if hidden
+        if (window.getComputedStyle(cameraWrapper).display === 'none') {
+            // If we haven't started the hardware yet, do it now
+            if (!streaming) {
+                await startCamera(); 
+            }
+            cameraWrapper.style.display = 'block';
+            detectionActive = true;
+            snap.textContent = 'Detecting paper...';
+            return;
+        }
+
+        // 2. Restart detection if it was paused
         if (!detectionActive && !isCapturing) {
             detectionActive = true;
             snap.textContent = 'Detecting paper...';
             return;
         }
 
-        // Case 2: Programmatic click for auto-capture.
+        // 3. Capture and Process Logic
         if (detectionActive && !isCapturing && largestContour) {
             isCapturing = true;
-            detectionActive = false; // Stop detection
+            detectionActive = false; 
             snap.textContent = 'Captured! Processing...';
-            snap.classList.remove('ready');
 
             const context = captureCanvas.getContext('2d');
             captureCanvas.width = video.videoWidth;
@@ -169,23 +192,21 @@ function startApp() {
             .then(data => {
                 if (data.musicxml_path) {
                     const visualizerUrl = buildVisualizerUrl(data.musicxml_path);
-                    const msg = data.warning
-                        ? 'Converted with checker warnings.'
-                        : 'Successfully converted.';
                     showEmbeddedVisualizer(visualizerUrl);
-                    showMessage(msg, 'success');
+                    showMessage(data.warning ? 'Converted with checker warnings.' : 'Successfully converted.', 'success');
                 } else {
                     showMessage(`Error: ${data.error}`, 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showMessage('An error occurred while uploading the image.', 'error');
-            })
+            .catch(err => showMessage('Processing failed.', 'error'))
             .finally(() => {
+                // --- RESET UI HERE ---
                 isCapturing = false;
                 stableFrames = 0;
-                snap.textContent = 'Start Capture'; // Reset for next time
+                snap.textContent = 'Start Capture'; // Button goes back to normal
+                
+                // This hides the camera box/dropdown area as requested
+                cameraWrapper.style.display = 'none'; 
             });
         }
     });

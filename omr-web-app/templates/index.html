@@ -3,116 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Uploader and Camera Capture</title>
+    <title>Piano Hand Project - Dashboard</title>
     <style>
+        /* --- MODERN VARIABLES --- */
+        :root {
+            --bg-color: #f4f5f7;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --border-color: #e5e7eb;
+            --btn-bg: #007bff;
+            --btn-hover: #0056b3;
+            --accent: #39e5a8;
+            --radius: 12px;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
         body {
-            font-family: sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-color: #f0f0f0;
-            margin: 0;
         }
+
         .container {
-            background-color: white;
+            background-color: var(--card-bg);
             padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            width: 90%;
-            max-width: 600px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            width: 95%;
+            max-width: 1600px;
         }
-        h1 {
-            text-align: center;
+
+        h1 { text-align: center; margin-bottom: 2rem; font-weight: 800; }
+
+        /* --- VISUALIZER ROW (TOP) --- */
+        .visualizer-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
             margin-bottom: 2rem;
+            align-items: start;
         }
-        .option {
-            margin-bottom: 2rem;
+
+        .message-success { 
+            background-color: #d1fae5; 
+            color: #065f46; 
+            border: 1px solid #10b981; 
+            display: block;
         }
-        #embedded-visualizer {
-            display: none;
-            margin-bottom: 2rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+
+        .message-error { 
+            background-color: #fee2e2; 
+            color: #991b1b; 
+            border: 1px solid #ef4444; 
+            display: block;
+        }
+
+        .vis-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
             overflow: hidden;
             background: #fff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
         }
-        #embedded-visualizer h2 {
+
+        .vis-card h2 {
             margin: 0;
             padding: 0.75rem 1rem;
             background: #f7f7f7;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             font-size: 1rem;
+            color: #333;
         }
-        #visualizer-frame {
+
+        .vis-card iframe {
             width: 100%;
-            height: 520px;
-            border: 0;
+            height: 600px;
+            border: none;
             display: block;
         }
-        .option h2 {
-            border-bottom: 2px solid #eee;
+
+        /* --- OPTIONS ROW (BOTTOM) --- */
+        .options-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr; /* Camera gets slightly more room */
+            gap: 20px;
+            align-items: start;
+        }
+
+        .option-card {
+            background: #fff;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .option-card h2 {
+            margin: 0 0 1rem 0;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #f0f0f0;
             padding-bottom: 0.5rem;
-            margin-bottom: 1rem;
         }
-        .camera-container {
-            position: relative;
-            background-color: #000;
-        }
-        video {
-            width: 100%;
-            border-radius: 4px;
-            transform: rotate(90deg);
-        }
-        #canvas-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            transform: rotate(90deg);
-        }
+
+        /* --- BUTTONS & INPUTS --- */
         button {
             display: block;
             width: 100%;
             padding: 0.75rem;
             border: none;
-            background-color: #007bff;
+            background-color: var(--btn-bg);
             color: white;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
             margin-top: 1rem;
+            transition: background 0.2s;
         }
-        button:hover {
-            background-color: #0056b3;
+        button:hover { background-color: var(--btn-hover); }
+
+        select, input[type="file"] {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
         }
-        input[type="file"] {
-            display: block;
-            width: calc(100% - 1.5rem);
-            padding: 0.75rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+
+        /* --- CAMERA CONTAINER (3:4 Ratio Fix) --- */
+        .camera-wrapper {
+            position: relative;
+            background-color: #000;
+            width: 100%;
+            aspect-ratio: 3 / 4; 
+            overflow: hidden;
+            border-radius: 6px;
+            display: none; 
         }
-        #upload-pdf-form {
-            display: flex;
-            gap: 1rem;
+        video {
+            position: absolute;
+            width: 133.33%; /* Compansating for 90deg rotation */
+            height: 75%;    
+            top: 12.5%;
+            left: -16.66%;
+            transform: rotate(90deg);
+            object-fit: cover;
         }
-        #message {
-            text-align: center;
-            margin-top: 1rem;
-            padding: 1rem;
-            border-radius: 4px;
-            display: none;
+        #canvas-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 5;
         }
-        .message-success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .message-error {
-            background-color: #f8d7da;
-            color: #721c24;
+
+        /* --- RESPONSIVENESS --- */
+        @media (max-width: 1100px) {
+            .visualizer-row, .options-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -120,46 +176,50 @@
     <div class="container">
         <h1>Piano Hand Project</h1>
         <div id="message"></div>
-        <div id="embedded-visualizer">
-            <h2>AlphaTab Visualizer</h2>
-            <iframe id="visualizer-frame" title="MusicXML Visualizer"></iframe>
-        </div>
 
-        <div id="piano-visualizer-section" style="margin-top: 2rem;">
-            <h2>Piano Fingering Visualizer</h2>
-            <iframe id="piano-frame" src="/piano_visualizer" style="width: 100%; height: 800px; border: 1px solid #ddd; border-radius: 8px;"></iframe>
-        </div>
-
-        <div class="option">
-            <h2>Option 1: Upload Image File</h2>
-            <form id="upload-image-form">
-                <input type="file" id="image_file" name="image_file" accept=".png,.jpg,.jpeg" required>
-                <button type="submit">Upload & Process Image</button>
-            </form>
-        </div>
-
-        <div class="option">
-            <h2>Option 2: Capture Image with Camera</h2>
-            <div class="camera-container">
-                <video id="video" autoplay></video>
-                <canvas id="canvas-overlay"></canvas>
+        <div class="visualizer-row">
+            <div id="embedded-visualizer" class="vis-card">
+                <h2>AlphaTab Visualizer</h2>
+                <iframe id="visualizer-frame" title="AlphaTab" allow="autoplay"></iframe>
             </div>
-            <button id="snap">Start Capture</button>
-            <canvas id="canvas" style="display:none;"></canvas>
+
+            <div id="piano-visualizer-section" class="vis-card">
+                <h2>Piano Fingering Visualizer</h2>
+                <iframe id="piano-frame" src="/piano_visualizer" allow="autoplay"></iframe>
+            </div>
         </div>
 
-        <div class="option">
-            <h2>Option 3: Select Pre-loaded Song</h2>
-            <form id="preloaded-form">
-                <select id="preloaded_file" name="preloaded_file" style="display: block; width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 1rem;">
-                    <option value="" disabled selected>Select a MusicXML file...</option>
-                    {% for item in preloaded_items %}
-                        <option value="{{ item.filename }}">{{ item.label }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit">Load File</button>
-            </form>
-            <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem; text-align: center;">Add files to the <code>preloaded_musicxml</code> directory to see them here.</p>
+        <div class="options-row">
+            <div class="option-card">
+                <h2>Option 1: Upload</h2>
+                <form id="upload-image-form">
+                    <input type="file" id="image_file" name="image_file" accept=".png,.jpg,.jpeg" required>
+                    <button type="submit">Upload & Process</button>
+                </form>
+            </div>
+
+            <div class="option-card">
+                <h2>Option 2: Camera</h2>
+                <div class="camera-wrapper">
+                    <video id="video" autoplay></video>
+                    <canvas id="canvas-overlay"></canvas>
+                </div>
+                <button id="snap">Start Capture</button>
+                <canvas id="canvas" style="display:none;"></canvas>
+            </div>
+
+            <div class="option-card">
+                <h2>Option 3: Library</h2>
+                <form id="preloaded-form">
+                    <select id="preloaded_file" name="preloaded_file">
+                        <option value="" disabled selected>Select a file...</option>
+                        {% for item in preloaded_items %}
+                            <option value="{{ item.filename }}">{{ item.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit">Load Song</button>
+                </form>
+            </div>
         </div>
     </div>
 
