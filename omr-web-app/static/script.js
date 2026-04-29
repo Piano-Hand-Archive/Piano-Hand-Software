@@ -41,11 +41,41 @@ function startApp() {
     libraryForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const selectedFile = document.getElementById('preloaded_file').value;
-        if (selectedFile) {
-            const url = `/visualizer?file=${encodeURIComponent(selectedFile)}`;
-            showEmbeddedVisualizer(url);
-            showMessage(`Loaded ${selectedFile} from library.`, 'success');
+        if (!selectedFile) {
+            return;
         }
+
+        const submitBtn = libraryForm.querySelector('button[type="submit"]');
+        const originalLabel = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Loading...';
+
+        fetch('/process_preloaded', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: selectedFile })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showMessage(`Error: ${data.error}`, 'error');
+                return;
+            }
+            const visualizerUrl = buildVisualizerUrl(data.musicxml_path);
+            showEmbeddedVisualizer(visualizerUrl);
+
+            const hc = data.hand_commands;
+            if (hc && hc.error) {
+                showMessage(`Loaded ${selectedFile} (hand commands failed: ${hc.error})`, 'warning');
+            } else {
+                showMessage(`Loaded ${selectedFile} from library.`, 'success');
+            }
+        })
+        .catch(() => showMessage('Failed to load library file.', 'error'))
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalLabel;
+        });
     });
 
     async function startCamera() {

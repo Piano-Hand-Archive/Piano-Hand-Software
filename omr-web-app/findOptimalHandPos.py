@@ -2,6 +2,8 @@ import csv
 import os
 import sys
 import argparse
+import io
+import contextlib
 from music21 import *
 
 # ==========================================
@@ -2308,6 +2310,78 @@ def save_outputs(l_cmd, r_cmd, l_path, r_path, l_groups, r_groups, split, note_g
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
+
+def run_optimizer_for_app(input_path, output_dir):
+    """Programmatic entry point used by the Flask app.
+
+    Runs the full pipeline with the module's current default settings on
+    `input_path` and writes outputs into `output_dir`. Returns a dict with
+    the produced file paths and any safety warnings. Raises RuntimeError
+    on fatal failures so callers can decide how to surface the error.
+    """
+    if not os.path.exists(input_path):
+        raise RuntimeError(f"Input file not found: {input_path}")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # The pipeline functions print progress with unicode glyphs (e.g. '✓')
+    # that crash on Windows cp1252 stdout. Swallow stdout for the whole run;
+    # callers receive structured info via the return value and `issues`.
+    with contextlib.redirect_stdout(io.StringIO()):
+        note_info = parse_musicxml(input_path, auto_transpose=False)
+        if not note_info:
+            raise RuntimeError("No playable notes found in MusicXML.")
+
+        timed_steps = convert_to_timed_steps(note_info)
+        save_timed_steps_csv(timed_steps, output_dir)
+
+        note_groups = load_notes_grouped_by_time(os.path.join(output_dir, "timed_steps.csv"))
+
+        if DYNAMIC_SPLIT_ENABLED:
+            split_sequence = find_dynamic_split_points(note_groups)
+            if not split_sequence:
+                raise RuntimeError("Could not find a valid dynamic split sequence.")
+            from collections import Counter
+            split_point = Counter(split_sequence).most_common(1)[0][0]
+        else:
+            split_point = find_optimal_split_point(note_groups)
+            split_sequence = None
+
+        if split_point is None:
+            raise RuntimeError("Could not find any valid split point.")
+
+        if DYNAMIC_SPLIT_ENABLED and split_sequence:
+            l_groups, r_groups, conflict_log = assign_hands_with_dynamic_splits(
+                note_groups, split_sequence, resolve_conflicts=True
+            )
+            l_path = optimize_with_dynamic_boundaries(l_groups, "Left", split_sequence, is_left=True)
+            r_path = optimize_with_dynamic_boundaries(r_groups, "Right", split_sequence, is_left=False)
+        else:
+            l_groups, r_groups, conflict_log = assign_hands_to_notes(
+                note_groups, split_point, resolve_conflicts=True
+            )
+            l_path = optimize_with_boundaries(l_groups, "Left", max_boundary=split_point)
+            r_path = optimize_with_boundaries(r_groups, "Right", min_boundary=split_point + MIN_HAND_GAP)
+
+        if not l_path or not r_path:
+            raise RuntimeError("Optimization failed during path generation.")
+
+        issues = validate_output(l_path, r_path, note_groups, l_groups, r_groups)
+
+        l_cmd, l_shift = generate_servo_commands(l_path, l_groups, "Left", "G1")
+        r_cmd, r_shift = generate_servo_commands(r_path, r_groups, "Right", "F7")
+        max_shift = max(l_shift, r_shift)
+
+        save_outputs(l_cmd, r_cmd, l_path, r_path, l_groups, r_groups,
+                     split_point, note_groups, output_dir, max_shift, conflict_log)
+
+    return {
+        "left_commands": os.path.join(output_dir, "left_hand_commands.txt"),
+        "right_commands": os.path.join(output_dir, "right_hand_commands.txt"),
+        "split_point": split_point,
+        "issues": issues,
+    }
+
 
 def parse_arguments():
     """Parse command line arguments."""
